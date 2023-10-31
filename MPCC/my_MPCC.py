@@ -10,20 +10,20 @@ from ReferencePath import ReferencePath as rp
 class MPCC:
     def __init__(self, conf, map_name):
 
-        self.vehicle_speed = 5
+        self.vehicle_speed = 3
 
         self.nx = 4 #number of input [x, y, psi, s]
-        self.nu = 2 #number of output [delta, p],steering and 
-        self.N = 5  #prediction horizon
+        self.nu = 2 #number of output [delta, p],steering(change in yaw angle) and change in reference path progress
+        self.N = 10  #prediction horizon
         self.map_name = map_name
-        self.L = 0.324
+        self.wheelbase = 0.324
         self.conf = conf
         self.load_waypoints()
 
 
         #adjustable params
         #----------------------
-        self.dt = 0.1
+        self.dt = 0.05
 
         self.delta_min = -0.4
         self.delta_max = 0.4
@@ -34,10 +34,10 @@ class MPCC:
         self.psi_min = -10
         self.psi_max = 10
 
-        self.weight_progress = 0
-        self.weight_lag = 1
-        self.weight_contour = 1
-        self.weight_steer = 1
+        self.weight_progress = 1
+        self.weight_lag = 100
+        self.weight_contour = 0.1
+        self.weight_steer = 0.1
         #------------------------
 
         #initial position
@@ -48,7 +48,7 @@ class MPCC:
         # phit0 = self.track_lu_table[position,4]
         # self.x0 = np.array([xt0,yt0,phit0])
 
-        self.rp = rp(map_name,self.L)
+        self.rp = rp(map_name,self.wheelbase)
         self.u0 = np.zeros((self.N, self.nu))
         self.X0 = np.zeros((self.N + 1, self.nx))
         self.warm_start = True
@@ -69,7 +69,6 @@ class MPCC:
         self.track_lu_table = np.loadtxt('./new_maps/'+ self.map_name +'_'+'lutab'+'.csv', delimiter=",")
         self.wpts = np.vstack((self.track_lu_table[:,2],self.track_lu_table[:,3])).T
 
-
         #track_lu_table_heading = ['sval', 'tval', 'xtrack', 'ytrack', 'phitrack', 'cos(phi)', 'sin(phi)', 'g_upper', 'g_lower']
 
 
@@ -77,9 +76,6 @@ class MPCC:
         """
         update waypoints being drawn by EnvRenderer
         """
-
-
-        
         scaled_points = 50.*self.wpts
 
         for i in range(scaled_points.shape[0]):
@@ -105,7 +101,8 @@ class MPCC:
         states = ca.MX.sym('states', self.nx) #[x, y, psi, s]
         controls = ca.MX.sym('controls', self.nu) # [delta, p]
 
-        rhs = ca.vertcat(self.vehicle_speed * ca.cos(states[2]), self.vehicle_speed * ca.sin(states[2]), (self.vehicle_speed / self.L) * ca.tan(controls[0]), controls[1])  # dynamic equations of the states
+        #set up dynamic states of the vehichle
+        rhs = ca.vertcat(self.vehicle_speed * ca.cos(states[2]), self.vehicle_speed * ca.sin(states[2]), (self.vehicle_speed / self.wheelbase) * ca.tan(controls[0]), controls[1])  # dynamic equations of the states
         self.f = ca.Function('f', [states, controls], [rhs])  # nonlinear mapping function f(x,u)
         
         self.U = ca.MX.sym('U', self.nu, self.N)
@@ -143,7 +140,7 @@ class MPCC:
 
             self.g = ca.vertcat(self.g, self.P[self.nx + 2 * k] * st_next[0] - self.P[self.nx + 2 * k + 1] * st_next[1])  # LB<=ax-by<=UB  :represents path boundary constraints
 
-        self.obj = 0  # Objective function
+        self.J = 0  # Objective function
         for k in range(self.N):
             st_next = self.X[:, k + 1]
             t_angle = self.rp.angle_lut_t(st_next[3])
@@ -151,15 +148,15 @@ class MPCC:
             countour_error = ca.sin(t_angle) * (st_next[0] - ref_x) - ca.cos(t_angle) * (st_next[1] - ref_y)
             lag_error = -ca.cos(t_angle) * (st_next[0] - ref_x) - ca.sin(t_angle) * (st_next[1] - ref_y)
 
-            self.obj = self.obj + countour_error **2 * self.weight_contour  
-            self.obj = self.obj + lag_error **2 * self.weight_lag
-            self.obj = self.obj - self.U[1, k] * self.weight_progress 
-            self.obj = self.obj + (self.U[0, k]) ** 2 * self.weight_steer 
+            self.J = self.J + countour_error **2 * self.weight_contour  
+            self.J = self.J + lag_error **2 * self.weight_lag
+            self.J = self.J - self.U[1, k] * self.weight_progress 
+            self.J = self.J + (self.U[0, k]) ** 2 * self.weight_steer 
             
         optimisation_variables = ca.vertcat(ca.reshape(self.X, self.nx * (self.N + 1), 1),
                                 ca.reshape(self.U, self.nu * self.N, 1))
 
-        nlp_prob = {'f': self.obj,
+        nlp_prob = {'f': self.J,
                      'x': optimisation_variables,
                        'g': self.g,
                          'p': self.P}

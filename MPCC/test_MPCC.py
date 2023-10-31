@@ -6,8 +6,8 @@ from my_MPCC import MPCC
 import matplotlib.pyplot as plt
 import numpy as np
 
-REALTIME_VERBOSE = True
-# REALTIME_VERBOSE = False
+# REALTIME_VERBOSE = True
+REALTIME_VERBOSE = False
 
 # REALTIME_VERBOSE_temp = True
 REALTIME_VERBOSE_temp = False
@@ -58,8 +58,6 @@ def main():
 
     if REALTIME_VERBOSE:
         plt.figure()
-    if REALTIME_VERBOSE_temp:
-        plt.figure()
 
     while not done:
         x0 = [obs['poses_x'][0], obs['poses_y'][0],obs['poses_theta'][0]]
@@ -68,7 +66,6 @@ def main():
         # print(x_ref)
         z = 2
         while z > 0:
-            # obs, _, done, _ = env.step(np.array([[0., speed*speedgain]]))
             obs, _, done, _ = env.step(np.array([[steering_angle, speed]]))
             z-=1
         env.render(mode='human_fast')
