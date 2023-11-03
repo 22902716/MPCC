@@ -13,8 +13,8 @@ class MPCC:
         self.vehicle_speed = 3
 
         self.nx = 4 #number of input [x, y, psi, s]
-        self.nu = 2 #number of output [delta, p],steering(change in yaw angle) and change in reference path progress
-        self.N = 10  #prediction horizon
+        self.nu = 3 #number of output [delta, p, v],steering(change in yaw angle), change in reference path progress and acceleration
+
         self.map_name = map_name
         self.wheelbase = 0.324
         self.conf = conf
@@ -24,6 +24,7 @@ class MPCC:
         #adjustable params
         #----------------------
         self.dt = 0.05
+        self.N = 10  #prediction horizon
 
         self.delta_min = -0.4
         self.delta_max = 0.4
@@ -35,9 +36,12 @@ class MPCC:
         self.psi_max = 10
 
         self.weight_progress = 1
-        self.weight_lag = 100
-        self.weight_contour = 0.1
+        self.weight_lag = 1
+        self.weight_contour = 10
         self.weight_steer = 0.1
+
+        self.v_min = 0
+        self.v_max = 8
         #------------------------
 
         #initial position
@@ -55,7 +59,6 @@ class MPCC:
 
         self.drawn_waypoints = []
 
-        
         self.problem_setup()
 
 
@@ -99,19 +102,19 @@ class MPCC:
 
     def problem_setup(self):
         states = ca.MX.sym('states', self.nx) #[x, y, psi, s]
-        controls = ca.MX.sym('controls', self.nu) # [delta, p]
+        controls = ca.MX.sym('controls', self.nu) # [delta, v, p]
 
         #set up dynamic states of the vehichle
-        rhs = ca.vertcat(self.vehicle_speed * ca.cos(states[2]), self.vehicle_speed * ca.sin(states[2]), (self.vehicle_speed / self.wheelbase) * ca.tan(controls[0]), controls[1])  # dynamic equations of the states
+        rhs = ca.vertcat(controls[1] * ca.cos(states[2]), controls[1] * ca.sin(states[2]), (controls[1] / self.wheelbase) * ca.tan(controls[0]), controls[2])  # dynamic equations of the states
         self.f = ca.Function('f', [states, controls], [rhs])  # nonlinear mapping function f(x,u)
         
         self.U = ca.MX.sym('U', self.nu, self.N)
         self.X = ca.MX.sym('X', self.nx, (self.N + 1))
-        self.P = ca.MX.sym('P', self.nx + 2 * self.N) # init state and boundaries of the reference path
+        self.P = ca.MX.sym('P', self.nx + 2 * self.N +1) # init state and boundaries of the reference path
 
         '''Initialize upper and lower bounds for state and control variables'''
-        self.lbg = np.zeros((self.nx * (self.N + 1) + self.N, 1))
-        self.ubg = np.zeros((self.nx * (self.N + 1) + self.N, 1))
+        self.lbg = np.zeros((self.nx * (self.N + 1) + self.N*3, 1))
+        self.ubg = np.zeros((self.nx * (self.N + 1) + self.N*3, 1))
         self.lbx = np.zeros((self.nx + (self.nx + self.nu) * self.N, 1))
         self.ubx = np.zeros((self.nx + (self.nx + self.nu) * self.N, 1))
                 
@@ -126,8 +129,8 @@ class MPCC:
 
         state_count = self.nx * (self.N + 1)
         for k in range(self.N):
-            self.lbx[state_count:state_count + self.nu, 0] = np.array([[-self.delta_max, self.p_min]]) 
-            self.ubx[state_count:state_count + self.nu, 0] = np.array([[self.delta_max, self.p_max]])  
+            self.lbx[state_count:state_count + self.nu, 0] = np.array([[-self.delta_max, self.v_min, self.p_min]]) 
+            self.ubx[state_count:state_count + self.nu, 0] = np.array([[self.delta_max, self.v_max, self.p_max]])  
             state_count += self.nu
 
         """Initialise the bounds (g) on the dynamics and track boundaries"""

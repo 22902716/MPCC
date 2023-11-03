@@ -2,9 +2,12 @@ from argparse import Namespace
 from f110_gym.envs.base_classes import Integrator
 import yaml
 import gym
-from my_MPCC import MPCC
+from ConstantMPCC import MPCC as MPCC
+from FastMPCC import MPCC as fastMPCC
 import matplotlib.pyplot as plt
 import numpy as np
+
+MPCCMODE = "fast"
 
 # REALTIME_VERBOSE = True
 REALTIME_VERBOSE = False
@@ -25,7 +28,11 @@ def main():
         conf_dict = yaml.load(file, Loader=yaml.FullLoader)
     conf = Namespace(**conf_dict)
     
-    planner = MPCC(conf,map_name_list[0])
+    if MPCCMODE == "constant":
+        planner = MPCC(conf,map_name_list[0])
+
+    if MPCCMODE == "fast":
+        planner = fastMPCC(conf,map_name_list[0])
 
     def render_callback(env_renderer):
         e = env_renderer
