@@ -7,10 +7,10 @@ from FastMPCC import MPCC as fastMPCC
 import matplotlib.pyplot as plt
 import numpy as np
 
-MPCCMODE = "fast"
+MPCCMODE = "fast"           #Mode: "Fast"; "constant";
 
-# REALTIME_VERBOSE = True
-REALTIME_VERBOSE = False
+REALTIME_VERBOSE = True
+# REALTIME_VERBOSE = False
 
 # REALTIME_VERBOSE_temp = True
 REALTIME_VERBOSE_temp = False
@@ -67,8 +67,8 @@ def main():
         plt.figure()
 
     while not done:
-        x0 = [obs['poses_x'][0], obs['poses_y'][0],obs['poses_theta'][0]]
-        steering_angle,speed,x_bar = planner.plan(x0)
+        
+        steering_angle,speed,x_bar = planner.plan(obs)
         # print("steering : ",steering_angle)
         # print(x_ref)
         z = 2

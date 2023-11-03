@@ -24,7 +24,7 @@ class MPCC:
         #adjustable params
         #----------------------
         self.dt = 0.05
-        self.N = 10  #prediction horizon
+        self.N = 5  #prediction horizon
 
         self.delta_min = -0.4
         self.delta_max = 0.4
@@ -39,6 +39,8 @@ class MPCC:
         self.weight_lag = 1
         self.weight_contour = 10
         self.weight_steer = 0.1
+        self.weight_speed_change = 1
+        self.weight_steering_change = 1
 
         self.v_min = 0
         self.v_max = 8
@@ -89,11 +91,13 @@ class MPCC:
             else:
                 self.drawn_waypoints[i].vertices = [scaled_points[i, 0], scaled_points[i, 1], 0.]
 
-    def plan(self, current_x):
-        x0 = self.build_initial_state(current_x)
+    def plan(self, obs):
+        x0 = [obs['poses_x'][0], obs['poses_y'][0],obs['poses_theta'][0]]
+        x0_speed = obs['linear_vels_x'][0]
+        x0 = self.build_initial_state(x0)
         self.construct_warm_start_soln(x0) 
         self.set_up_constraints()
-        p = self.generate_parameters(x0)
+        p = self.generate_parameters(x0,x0_speed)
         controls,x_bar = self.solve(p)
 
         action = np.array([controls[0, 0], self.vehicle_speed])
@@ -110,11 +114,11 @@ class MPCC:
         
         self.U = ca.MX.sym('U', self.nu, self.N)
         self.X = ca.MX.sym('X', self.nx, (self.N + 1))
-        self.P = ca.MX.sym('P', self.nx + 2 * self.N +1) # init state and boundaries of the reference path
+        self.P = ca.MX.sym('P', self.nx + 2 * self.N + 1) # init state and boundaries of the reference path
 
         '''Initialize upper and lower bounds for state and control variables'''
-        self.lbg = np.zeros((self.nx * (self.N + 1) + self.N*3, 1))
-        self.ubg = np.zeros((self.nx * (self.N + 1) + self.N*3, 1))
+        self.lbg = np.zeros((self.nx * (self.N + 1) + self.N*2, 1))
+        self.ubg = np.zeros((self.nx * (self.N + 1) + self.N*2, 1))
         self.lbx = np.zeros((self.nx + (self.nx + self.nu) * self.N, 1))
         self.ubx = np.zeros((self.nx + (self.nx + self.nu) * self.N, 1))
                 
@@ -142,6 +146,10 @@ class MPCC:
             self.g = ca.vertcat(self.g, st_next - st_next_euler)  # add dynamics constraint
 
             self.g = ca.vertcat(self.g, self.P[self.nx + 2 * k] * st_next[0] - self.P[self.nx + 2 * k + 1] * st_next[1])  # LB<=ax-by<=UB  :represents path boundary constraints
+            if k == 0:
+                self.g = ca.vertcat(self.g, ca.fabs(self.U[1,k] - self.P[-1]))
+            else: 
+                self.g = ca.vertcat(self.g, ca.fabs(self.U[1,k] - self.U[1,k-1]))
 
         self.J = 0  # Objective function
         for k in range(self.N):
@@ -155,6 +163,8 @@ class MPCC:
             self.J = self.J + lag_error **2 * self.weight_lag
             self.J = self.J - self.U[1, k] * self.weight_progress 
             self.J = self.J + (self.U[0, k]) ** 2 * self.weight_steer 
+            # self.J = self.J + (self.U[0, k]) ** 2 * self.weight_steering_change
+            # self.J = self.J + (self.U[1, k]) **2 * self.weight_speed_change
             
         optimisation_variables = ca.vertcat(ca.reshape(self.X, self.nx * (self.N + 1), 1),
                                 ca.reshape(self.U, self.nu * self.N, 1))
@@ -175,8 +185,8 @@ class MPCC:
 
         return x0
 
-    def generate_parameters(self, x0_in):
-        p = np.zeros(self.nx + 2 * self.N)
+    def generate_parameters(self, x0_in, x0_speed):
+        p = np.zeros(self.nx + 2 * self.N + 1)
         p[:self.nx] = x0_in
 
         for k in range(self.N):  # set the reference controls and path boundary conditions to track
@@ -189,6 +199,7 @@ class MPCC:
             delta_x = right_x - left_x
             delta_y = right_y - left_y
             p[self.nx + 2 * k:self.nx + 2 * k + 2] = [-delta_x, delta_y]
+            p[-1] = max(x0_speed, 1) # prevent constraint violation
 
         return p
     
@@ -223,7 +234,7 @@ class MPCC:
         if self.solver.stats()['return_status'] != 'Solve_Succeeded':
             print("Solve failed!!!!!")
 
-        return controls.full(),self.X0
+        return controls.full(), self.X0
         
     def construct_warm_start_soln(self, initial_state):
         if not self.warm_start: return
