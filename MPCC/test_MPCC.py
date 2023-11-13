@@ -34,6 +34,7 @@ def main():
     if MPCCMODE == "fast":
         planner = fastMPCC(conf,map_name_list[0])
 
+
     def render_callback(env_renderer):
         e = env_renderer
 
@@ -71,7 +72,7 @@ def main():
         steering_angle,speed,x_bar = planner.plan(obs)
         # print("steering : ",steering_angle)
         # print(x_ref)
-        z = 2
+        z = 10
         while z > 0:
             obs, _, done, _ = env.step(np.array([[steering_angle, speed]]))
             z-=1

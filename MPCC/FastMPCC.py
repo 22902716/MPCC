@@ -9,11 +9,9 @@ from ReferencePath import ReferencePath as rp
 
 class MPCC:
     def __init__(self, conf, map_name):
-
-        self.vehicle_speed = 3
-
+        print("This is Fast MPCC TEST")
         self.nx = 4 #number of input [x, y, psi, s]
-        self.nu = 3 #number of output [delta, p, v],steering(change in yaw angle), change in reference path progress and acceleration
+        self.nu = 3 #number of output [delta, v, p],steering(change in yaw angle), change in reference path progress and acceleration
 
         self.map_name = map_name
         self.wheelbase = 0.324
@@ -23,7 +21,7 @@ class MPCC:
 
         #adjustable params
         #----------------------
-        self.dt = 0.05
+        self.dt = 0.1
         self.N = 5  #prediction horizon
 
         self.delta_min = -0.4
@@ -35,14 +33,14 @@ class MPCC:
         self.psi_min = -10
         self.psi_max = 10
 
-        self.weight_progress = 1
-        self.weight_lag = 1
-        self.weight_contour = 10
+        self.weight_progress = 1000000
+        self.weight_lag = 1000
+        self.weight_contour = 0.1
         self.weight_steer = 0.1
-        self.weight_speed_change = 1
-        self.weight_steering_change = 1
+        # self.weight_speed_change = 1
+        # self.weight_steering_change = 1
 
-        self.v_min = 0
+        self.v_min = 2
         self.v_max = 8
         #------------------------
 
@@ -96,11 +94,11 @@ class MPCC:
         x0_speed = obs['linear_vels_x'][0]
         x0 = self.build_initial_state(x0)
         self.construct_warm_start_soln(x0) 
-        self.set_up_constraints()
+
         p = self.generate_parameters(x0,x0_speed)
         controls,x_bar = self.solve(p)
 
-        action = np.array([controls[0, 0], self.vehicle_speed])
+        action = np.array([controls[0, 0], controls[0,1]])
 
         return action[0],action[1],x_bar
 
@@ -114,11 +112,11 @@ class MPCC:
         
         self.U = ca.MX.sym('U', self.nu, self.N)
         self.X = ca.MX.sym('X', self.nx, (self.N + 1))
-        self.P = ca.MX.sym('P', self.nx + 2 * self.N + 1) # init state and boundaries of the reference path
+        self.P = ca.MX.sym('P', self.nx + 2 * self.N + 1) # Parameters: init state and boundaries of the reference path
 
         '''Initialize upper and lower bounds for state and control variables'''
-        self.lbg = np.zeros((self.nx * (self.N + 1) + self.N*2, 1))
-        self.ubg = np.zeros((self.nx * (self.N + 1) + self.N*2, 1))
+        self.lbg = np.zeros((self.nx * (self.N + 1) + self.N, 1))
+        self.ubg = np.zeros((self.nx * (self.N + 1) + self.N, 1))
         self.lbx = np.zeros((self.nx + (self.nx + self.nu) * self.N, 1))
         self.ubx = np.zeros((self.nx + (self.nx + self.nu) * self.N, 1))
                 
@@ -146,10 +144,7 @@ class MPCC:
             self.g = ca.vertcat(self.g, st_next - st_next_euler)  # add dynamics constraint
 
             self.g = ca.vertcat(self.g, self.P[self.nx + 2 * k] * st_next[0] - self.P[self.nx + 2 * k + 1] * st_next[1])  # LB<=ax-by<=UB  :represents path boundary constraints
-            if k == 0:
-                self.g = ca.vertcat(self.g, ca.fabs(self.U[1,k] - self.P[-1]))
-            else: 
-                self.g = ca.vertcat(self.g, ca.fabs(self.U[1,k] - self.U[1,k-1]))
+
 
         self.J = 0  # Objective function
         for k in range(self.N):
@@ -161,10 +156,10 @@ class MPCC:
 
             self.J = self.J + countour_error **2 * self.weight_contour  
             self.J = self.J + lag_error **2 * self.weight_lag
-            self.J = self.J - self.U[1, k] * self.weight_progress 
+            self.J = self.J - self.U[2, k] * self.weight_progress 
             self.J = self.J + (self.U[0, k]) ** 2 * self.weight_steer 
-            # self.J = self.J + (self.U[0, k]) ** 2 * self.weight_steering_change
-            # self.J = self.J + (self.U[1, k]) **2 * self.weight_speed_change
+
+
             
         optimisation_variables = ca.vertcat(ca.reshape(self.X, self.nx * (self.N + 1), 1),
                                 ca.reshape(self.U, self.nu * self.N, 1))
@@ -175,8 +170,6 @@ class MPCC:
                          'p': self.P}
         opts = {"ipopt": {"max_iter": 2000, "print_level": 0}, "print_time": 0}
         self.solver = ca.nlpsol('solver', 'ipopt', nlp_prob, opts)
-
-
 
     def build_initial_state(self, current_x):
         x0 = current_x
@@ -191,21 +184,7 @@ class MPCC:
 
         for k in range(self.N):  # set the reference controls and path boundary conditions to track
             s_progress = self.X0[k, 3]
-            right_x = self.rp.right_lut_x(s_progress).full()[0, 0]
-            right_y = self.rp.right_lut_y(s_progress).full()[0, 0]
-            left_x = self.rp.left_lut_x(s_progress).full()[0, 0]
-            left_y = self.rp.left_lut_y(s_progress).full()[0, 0]
-
-            delta_x = right_x - left_x
-            delta_y = right_y - left_y
-            p[self.nx + 2 * k:self.nx + 2 * k + 2] = [-delta_x, delta_y]
-            p[-1] = max(x0_speed, 1) # prevent constraint violation
-
-        return p
-    
-    def set_up_constraints(self):
-        for k in range(self.N):  # set the reference controls and path boundary conditions to track
-            s_progress = self.X0[k, 3]
+            
             right_x = self.rp.right_lut_x(s_progress).full()[0, 0]
             right_y = self.rp.right_lut_y(s_progress).full()[0, 0]
             left_x = self.rp.left_lut_x(s_progress).full()[0, 0]
@@ -218,11 +197,22 @@ class MPCC:
                                     -delta_x * left_x - delta_y * left_y) 
             self.ubg[self.nx - 1 + (self.nx + 1) * (k + 1), 0] = max(-delta_x * right_x - delta_y * right_y,
                                     -delta_x * left_x - delta_y * left_y)
+            
 
+
+            p[self.nx + 2 * k:self.nx + 2 * k + 2] = [-delta_x, delta_y]
+            p[-1] = max(x0_speed, 1) # prevent constraint violation
+            # p[-1] = x0_speed
         self.lbg[self.nx *2, 0] = - ca.inf
         self.ubg[self.nx *2, 0] = ca.inf
 
+
+        return p
+    
+
+
     def solve(self, p):
+
         x_init = ca.vertcat(ca.reshape(self.X0.T, self.nx * (self.N + 1), 1),
                          ca.reshape(self.u0.T, self.nu * self.N, 1))
 
@@ -230,6 +220,9 @@ class MPCC:
 
         self.X0 = ca.reshape(sol['x'][0:self.nx * (self.N + 1)], self.nx, self.N + 1).T
         controls = ca.reshape(sol['x'][self.nx * (self.N + 1):], self.nu, self.N).T
+
+        print(controls[0, 0], controls[0,1])
+
 
         if self.solver.stats()['return_status'] != 'Solve_Succeeded':
             print("Solve failed!!!!!")
@@ -257,6 +250,7 @@ class MPCC:
                 else:
                     psi_next -= np.pi * 2
             self.X0[k, :] = np.array([x_next.full()[0, 0], y_next.full()[0, 0], psi_next, s_next])
+
 
 
     def normalise_psi(self,psi):

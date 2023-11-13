@@ -86,8 +86,9 @@ class MPCC:
             else:
                 self.drawn_waypoints[i].vertices = [scaled_points[i, 0], scaled_points[i, 1], 0.]
 
-    def plan(self, current_x):
-        x0 = self.build_initial_state(current_x)
+    def plan(self, obs):
+        x0 = [obs['poses_x'][0], obs['poses_y'][0],obs['poses_theta'][0]]
+        x0 = self.build_initial_state(x0)
         self.construct_warm_start_soln(x0) 
         self.set_up_constraints()
         p = self.generate_parameters(x0)
