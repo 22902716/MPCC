@@ -8,7 +8,7 @@ import trajectory_planning_helpers as tph
 from ReferencePath import ReferencePath as rp
 
 class MPCC:
-    def __init__(self, conf, map_name):
+    def __init__(self, map_name):
 
         self.vehicle_speed = 3
 
@@ -17,7 +17,6 @@ class MPCC:
 
         self.map_name = map_name
         self.wheelbase = 0.324
-        self.conf = conf
         self.load_waypoints()
 
 

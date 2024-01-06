@@ -17,22 +17,14 @@ REALTIME_VERBOSE_temp = False
 
 def main():
     map_name_list = ["gbr"]
-    map_name = map_name_list[0]
-    xbar_x = []
-    xbar_y = []
-    xref_x = []
-    xref_y = []        
+    map_name = map_name_list[0]       
     counter = 0
-
-    with open('maps/config_example_map.yaml') as file:
-        conf_dict = yaml.load(file, Loader=yaml.FullLoader)
-    conf = Namespace(**conf_dict)
     
     if MPCCMODE == "constant":
-        planner = MPCC(conf,map_name_list[0])
+        planner = MPCC(map_name_list[0])
 
     if MPCCMODE == "fast":
-        planner = fastMPCC(conf,map_name_list[0])
+        planner = fastMPCC(map_name_list[0])
 
 
     def render_callback(env_renderer):
@@ -52,13 +44,9 @@ def main():
 
         planner.render_waypoints(env_renderer)
 
-    if map_name == "example":
-        env = gym.make('f110_gym:f110-v0', map=conf.map_path, map_ext=conf.map_ext, num_agents=1, timestep=0.01, integrator=Integrator.RK4)
-        obs, step_reward, done, info = env.reset(np.array([[conf.sx, conf.sy, conf.stheta]]))
-    else:
-        env = gym.make('f110_gym:f110-v0', map='./maps/'+map_name, map_ext='.png', num_agents=1, timestep=0.01, integrator=Integrator.RK4)
-        # obs, step_reward, done, info = env.reset(np.array([[planner.X0[0], planner.X0[1], planner.X0[2]]]))
-        obs, step_reward, done, info = env.reset(np.array([[0, 0, 0]]))
+    env = gym.make('f110_gym:f110-v0', map='./maps/'+map_name, map_ext='.png', num_agents=1, timestep=0.01, integrator=Integrator.RK4)
+    # obs, step_reward, done, info = env.reset(np.array([[planner.X0[0], planner.X0[1], planner.X0[2]]]))
+    obs, step_reward, done, info = env.reset(np.array([[0, 0, 0]]))
 
     env.add_render_callback(render_callback)
     env.render()
@@ -70,37 +58,14 @@ def main():
     while not done:
         
         steering_angle,speed,x_bar = planner.plan(obs)
-        # print("steering : ",steering_angle)
-        # print(x_ref)
-        z = 10
+
+        z = 2
         while z > 0:
             obs, _, done, _ = env.step(np.array([[steering_angle, speed]]))
             z-=1
         env.render(mode='human_fast')
 
-        # xbar_x.append(x_bar[0,:])
-        # xbar_y.append(x_bar[1,:])
-        # xref_x.append(x_ref[0:planner.N+1,0])    
-        # xref_y.append(x_ref[0:planner.N+1,1])
-        
-        # print(xbar_x)
-        # print(xbar_y)
-        # print(xref_x)
-        # print(xref_y)
-
         counter += 1
-    
-
-        if REALTIME_VERBOSE:
-            plt.plot(planner.wpts[:,0],planner.wpts[:,1],"bx",markersize=1)
-            # plt.plot(planner.centerline[:,0],planner.centerline[:,1],"bx",markersize=1)
-            plt.plot(x_bar[:,0], x_bar[:,1], 'bo', markersize=4, label="Solution States (x_bar)") 
-            # plt.plot(x_ref[:,0],x_ref[:,1],'bx',label = "x_ref")
-            # print(planner.inner_bound)
-            # plt.plot(planner.inner_bound[:,0],planner.inner_bound[:,1],'bx',markersize = 3)
-            # plt.plot(planner.outer_bound[:,0],planner.outer_bound[:,1],'rx',markersize = 3)
-            plt.pause(0.01)
-            plt.clf()
 
 
         

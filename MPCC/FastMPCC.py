@@ -8,14 +8,13 @@ import trajectory_planning_helpers as tph
 from ReferencePath import ReferencePath as rp
 
 class MPCC:
-    def __init__(self, conf, map_name):
+    def __init__(self, map_name):
         print("This is Fast MPCC TEST")
         self.nx = 4 #number of input [x, y, psi, s]
         self.nu = 3 #number of output [delta, v, p],steering(change in yaw angle), change in reference path progress and acceleration
 
         self.map_name = map_name
         self.wheelbase = 0.324
-        self.conf = conf
         self.load_waypoints()
 
 
@@ -27,20 +26,20 @@ class MPCC:
         self.delta_min = -0.4
         self.delta_max = 0.4
         self.p_init = 2
-        self.p_min = 0
-        self.p_max = 4
+        self.p_min = 1
+        self.p_max = 10
 
         self.psi_min = -10
         self.psi_max = 10
 
-        self.weight_progress = 1000000
-        self.weight_lag = 1000
+        self.weight_progress = 1
+        self.weight_lag = 100
         self.weight_contour = 0.1
         self.weight_steer = 0.1
         # self.weight_speed_change = 1
         # self.weight_steering_change = 1
 
-        self.v_min = 2
+        self.v_min = 3
         self.v_max = 8
         #------------------------
 
