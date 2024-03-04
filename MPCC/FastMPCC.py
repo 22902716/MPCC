@@ -1,13 +1,9 @@
 
-import yaml
 import numpy as np
 import casadi as ca
-import math, cmath
 import matplotlib.pyplot as plt
-import trajectory_planning_helpers as tph
 from ReferencePath import ReferencePath as rp
 from DataSave import dataSave
-
 
 mu = 0.
 sigma = 0.2
@@ -33,11 +29,9 @@ class MPCC:
 
         self.ds = dataSave(TESTMODE, map_name, self.Max_iter)
 
-
-
         #adjustable params
         #----------------------
-        self.dt = 0.05
+        self.dt = 0.15
         self.N = 5  #prediction horizon
         self.mass = 3.8
         self.L = 0.324
@@ -53,8 +47,8 @@ class MPCC:
         self.psi_max = 10
 
         self.weight_progress = 100
-        self.weight_lag = 1
-        self.weight_contour = 1000
+        self.weight_lag = 1000
+        self.weight_contour = 0.1
         self.weight_steering = 1.5
 
         self.v_min = 2 
@@ -69,11 +63,12 @@ class MPCC:
         # phit0 = self.track_lu_table[position,4]
         # self.x0 = np.array([xt0,yt0,phit0])
 
-        self.rp = rp(map_name,w=0.4)
+        self.rp = rp(map_name,w=0.55)
         self.u0 = np.zeros((self.N, self.nu))
         self.X0 = np.zeros((self.N + 1, self.nx))
         self.warm_start = True
         self.x_bar = np.zeros((2, 2))
+        self.prev_x0 = [0.0,0.0,0.0]
 
         self.drawn_waypoints = []
 
@@ -93,7 +88,6 @@ class MPCC:
 
         #track_lu_table_heading = ['sval', 'tval', 'xtrack', 'ytrack', 'phitrack', 'cos(phi)', 'sin(phi)', 'g_upper', 'g_lower']
 
-
     def render_waypoints(self, e):
         """
         update waypoints being drawn by EnvRenderer
@@ -107,7 +101,6 @@ class MPCC:
                 self.drawn_waypoints.append(b)
             else:
                 self.drawn_waypoints[i].vertices = [scaled_points[i, 0], scaled_points[i, 1], 0.]
-
 
     def get_trackline_segment(self, point):
         """
@@ -124,24 +117,38 @@ class MPCC:
         
 
     def plan(self, obs,laptime):
-        x0 = self.inputStateAdust(obs)
-        x0_speed = obs['linear_vels_x'][0]
+        # lower case x0: [x,y,psi,states]
+        # upper case X0: [x,y,psi,speed]
+
+        x0, X0 = self.inputStateAdust(obs)
         x0 = self.build_initial_state(x0)
         self.construct_warm_start_soln(x0) 
 
-        p = self.generate_parameters(x0,x0_speed)
+        p = self.generate_parameters(x0,X0[3])
         controls,self.x_bar = self.solve(p)
 
         action = np.array([controls[0, 0], controls[0,1]])
         speed,steering = self.outputActionAdjust(action[1],action[0])
 
-        pose = np.array([x0[0], x0[1]])
-        ego_index,min_dists = self.get_trackline_segment(pose)
+        ego_index,min_dists = self.get_trackline_segment(x0[0:2])
         self.completion = 100 if ego_index/len(self.wpts) == 0 else round(ego_index/len(self.wpts)*100,2)
-
-        self.ds.saveStates(laptime,x0,speed,0.0,self.scaledRand,self.completion)
+        slip_angle = self.slipAngleCalc(obs)
+        self.ds.saveStates(laptime, X0, 0.0, 0.0, self.scaledRand, self.completion, steering, slip_angle)
 
         return speed,steering
+    
+    def slipAngleCalc(self,obs):
+        x = [self.X0[0] -self.prev_x0[0]]
+        y = [self.X0[1] - self.prev_x0[1]]
+        
+        velocity_dir = np.arctan2(y,x)
+        slip = np.abs(velocity_dir[0] - obs['poses_theta'][0]) *360 / (2*np.pi)
+        if slip > 180:
+            slip = slip-360
+
+        self.prev_x0 = self.X0
+
+        return slip
 
     def problem_setup(self):
         states = ca.MX.sym('states', self.nx) #[x, y, psi, s]
@@ -253,8 +260,6 @@ class MPCC:
 
 
         return p
-    
-
 
     def solve(self, p):
 
@@ -301,18 +306,21 @@ class MPCC:
     def inputStateAdust(self,obs):
 
         if self.reset:
-            X0 = [obs['poses_x'][0], obs['poses_y'][0], obs['poses_theta'][0]]
+            x0 = [obs['poses_x'][0], obs['poses_y'][0], obs['poses_theta'][0]]
+            self.prev_x0 = [0.0,0.0,0.0]
             self.reset = 0
         else:
-            X0 = [obs['poses_x'][0], obs['poses_y'][0], obs['poses_theta'][0]]
+            x0 = [obs['poses_x'][0], obs['poses_y'][0], obs['poses_theta'][0]]
 
 
         if self.TESTMODE == "perception_noise":
             rand = np.random.normal(mu,sigma,1)
             self.scaledRand = rand*self.scale
-            X0 = [obs['poses_x'][0]+self.scaledRand[0], obs['poses_y'][0]+self.scaledRand[0], obs['poses_theta'][0]]
+            x0 = [obs['poses_x'][0]+self.scaledRand[0], obs['poses_y'][0]+self.scaledRand[0], obs['poses_theta'][0]]
 
-        return X0
+        X0 = [obs['poses_x'][0], obs['poses_y'][0], obs['poses_theta'][0], obs['linear_vels_x'][0]]
+
+        return x0, X0
     
     def outputActionAdjust(self,speed,steering):
         rand = np.random.normal(mu,sigma,1)
@@ -335,10 +343,6 @@ class MPCC:
         plt.legend()
         plt.pause(0.01)
         plt.clf()
-
-        
-
-
 
     def normalise_psi(self,psi):
         while psi > np.pi:

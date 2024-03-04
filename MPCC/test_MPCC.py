@@ -17,15 +17,15 @@ np.random.seed(0)
 
 def main():
     map_name_list = ["gbr","esp","mco"]
-    # map_name_list = ["esp"]
+    # map_name_list = ["gbr"]
 
     '''Tuning'''
-    # testmode_list = ["dt_gain","dt_constant"]
+    # testmode_list = ["Tuning"]
 
     '''Experiments'''
-    testmode_list = ["Benchmark"]
+    # testmode_list = ["Benchmark"]
 
-    # testmode_list = ["Benchmark","perception_noise","Outputnoise_speed","Outputnoise_steering","control_delay_speed","control_Delay_steering","perception_delay"]
+    testmode_list = ["Benchmark","perception_noise","Outputnoise_speed","Outputnoise_steering","control_delay_speed","control_Delay_steering","perception_delay"]
     # testmode_list = ["Benchmark","perception_noise","Outputnoise_speed","Outputnoise_steering"]
     # testmode_list = ["control_delay_speed","control_Delay_steering","perception_delay"]     
 
@@ -41,7 +41,7 @@ def main():
                 planner = fastMPCC(map_name_list[0],TESTMODE)
 
             if MPCCMODE == "fastTuning":
-                planner = fastMPCC(map_name_list[0],TESTMODE)
+                planner = MPCCT(map_name_list[0],TESTMODE)
 
 
             def render_callback(env_renderer):
@@ -88,11 +88,12 @@ def main():
 
             while iter_count < planner.Max_iter:
                 if (lapCount+obs['lap_counts']+collision_count+reset_count) != iter_count or  obs['collisions'] or new_obs['collisions']:
+                    print((lapCount+obs['lap_counts']+collision_count))
+                    print(iter_count)
                     computation_time = time.time() - computation_time_start
                     lap_success = 1
                     planner.scale = iter_count // 10 * 0.02
                     iter_count += 1
-                    reset_count += 1
 
                     if obs['collisions'] or new_obs['collisions']:
                         print("Iter_count = ", iter_count, "I crashed, completion Percentage is", int(planner.completion),"%")
@@ -100,9 +101,10 @@ def main():
                         collision_count += 1
                         lapCount += obs['lap_counts'][0]   
                         obs, _, _, _ = env.reset(np.array([[planner.waypoints[init_pos][1], planner.waypoints[init_pos][2],planner.waypoints[init_pos][4]]]))
+                        reset_count-=1
                         planner.reset = 1
                     else:
-                        print("Iter_count = ", iter_count, "laptime = ", laptime)                      
+                        print("Iter_count = ", iter_count, "laptime = ", laptime)                          
 
                     if TESTMODE == "Benchmark":
                         var1 = 0
@@ -119,15 +121,11 @@ def main():
                     if TESTMODE == "control_delay_speed" or TESTMODE == "control_Delay_steering" or TESTMODE == "perception_delay":
                         var1 = time_delay*10
                         var2 = 0
-                    if TESTMODE == "dt_gain":
-                        var1 = planner.dt_gain
-                        var2 = planner.dt_constant + planner.dt_gain*speed
-                        planner.dt_gain += 0.01
-                    if TESTMODE == "dt_constant":
-                        var1 = planner.dt_constant
-                        var2 = planner.dt_constant + planner.dt_gain*speed
-                        planner.dt_constant += 0.05
-
+                    if TESTMODE == "Tuning":
+                        parameter_list = ["dt", "N", "weight_progress", "weight_lag", "weight_contour", "weight_steering"]
+                        var1 = planner.dt
+                        var2 = 0
+                        planner.dt +=0.02
                     aveTrackErr = np.mean(planner.ds.txt_x0[:,5])
 
                     if SAVELAPDATA:
@@ -143,21 +141,23 @@ def main():
                         control = [new_speed, new_steering_angle]
                         control_queue, obs_queue = initqueue(obs,control,time_delay)
                     obs, _, _, _ = env.reset(np.array([[planner.waypoints[init_pos][1], planner.waypoints[init_pos][2],planner.waypoints[init_pos][4]]]))
+                    reset_count+=1
 
 
                 if TESTMODE == "perception_delay":
                     speed,steering_angle = planner.plan(obs_queue[0],laptime)
                 else:
                     speed,steering_angle = planner.plan(obs,laptime)
-                    new_speed,new_steering_angle = planner.plan(obs,laptime)
-                    control = [new_speed, new_steering_angle]
+                    control = [speed, steering_angle]
 
                 z = UPDATE_PERIOD
                 while z > 0:
-                    control_queue.append(control)
+                    
                     if TESTMODE == "control_delay_speed":
+                        control_queue.append(control)
                         obs, _, _, _ = env.step(np.array([[steering_angle, control_queue[0][0]]]))
                     elif TESTMODE == "control_Delay_steering":
+                        control_queue.append(control)
                         obs, _, _, _ = env.step(np.array([[control_queue[0][1], speed]]))
                     else:
                         if TESTMODE == "perception_delay":

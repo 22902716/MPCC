@@ -12,7 +12,7 @@ from DataSave import dataSave
 mu = 0.
 sigma = 0.2
 
-class MPCC:
+class MPCCTuning:
     def __init__(self, map_name,TESTMODE):
         print("This is Fast MPCC Tuning")
         self.nx = 4 #number of input [x, y, psi, s]
@@ -23,13 +23,7 @@ class MPCC:
         self.wheelbase = 0.324
         self.load_waypoints()
         self.scale = 0.
-
-        if self.TESTMODE == "Benchmark" or self.TESTMODE == " ": 
-            self.Max_iter= 7           
-        elif self.TESTMODE == "perception_noise" or self.TESTMODE == "Outputnoise_speed" or self.TESTMODE == "Outputnoise_steering":
-            self.Max_iter = 300
-        elif self.TESTMODE == "control_delay_speed" or self.TESTMODE == "control_Delay_steering" or self.TESTMODE == "perception_delay":
-            self.Max_iter = 10
+        self.Max_iter = 10
 
         self.ds = dataSave(TESTMODE, map_name, self.Max_iter)
 
@@ -37,15 +31,15 @@ class MPCC:
 
         #adjustable params
         #----------------------
-        # self.dt = 0.05
-        # self.N = 5  #prediction horizon
+        self.dt = 0.15
+        self.N = 5  #prediction horizon
 
-        # self.weight_progress = 100
-        # self.weight_lag = 1
-        # self.weight_contour = 1000
-        # self.weight_steering = 1.5
+        self.weight_progress = 100
+        self.weight_lag = 1000
+        self.weight_contour = 0.1
+        self.weight_steering = 1.5
 
-        params = [0.05, 5, 100, 1, 1000, 1.5]  #dt, N, weight_progress, weight_lag, weight_contour, weight_steering
+        # params = [0.05, 5, 100, 1000, 0.1, 1.5]  #dt, N, weight_progress, weight_lag, weight_contour, weight_steering
 
         #------------------------
 
@@ -268,8 +262,8 @@ class MPCC:
         # print(controls[0, 0], controls[0,1])
 
 
-        if self.solver.stats()['return_status'] != 'Solve_Succeeded':
-            print("Solve failed!!!!!")
+        # if self.solver.stats()['return_status'] != 'Solve_Succeeded':
+        #     print("Solve failed!!!!!")
 
         return controls.full(), self.X0
         
@@ -295,7 +289,7 @@ class MPCC:
                     psi_next -= np.pi * 2
             self.X0[k, :] = np.array([x_next.full()[0, 0], y_next.full()[0, 0], psi_next, s_next])
 
-        # self.realTimePlot(self.x_bar, self.X0)
+        self.realTimePlot(self.x_bar, self.X0)
 
     def inputStateAdust(self,obs):
 

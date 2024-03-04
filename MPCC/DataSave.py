@@ -2,22 +2,24 @@ import numpy as np
 
 class dataSave:
     def __init__(self, TESTMODE, map_name,max_iter):
-        self.rowSize = 5000
+        self.rowSize = 50000
         self.stateCounter = 0
         self.lapInfoCounter = 0
         self.TESTMODE = TESTMODE
         self.map_name = map_name
         self.max_iter = max_iter
-        self.txt_x0 = np.zeros((self.rowSize,8))
+        self.txt_x0 = np.zeros((self.rowSize,10))
         self.txt_lapInfo = np.zeros((max_iter,8))
 
-    def saveStates(self, time, x0, expected_speed, tracking_error, noise, completion):
+    def saveStates(self, time, x0, expected_speed, tracking_error, noise, completion, steering, slip_angle):
         self.txt_x0[self.stateCounter,0] = time
-        self.txt_x0[self.stateCounter,1] = completion
-        self.txt_x0[self.stateCounter,2:5] = [x0[0],x0[1],x0[3]]
-        self.txt_x0[self.stateCounter,5] = expected_speed
-        self.txt_x0[self.stateCounter,6] = tracking_error
-        self.txt_x0[self.stateCounter,7] = noise
+        self.txt_x0[self.stateCounter,1:4] = [x0[0],x0[1],x0[3]]
+        self.txt_x0[self.stateCounter,4] = expected_speed
+        self.txt_x0[self.stateCounter,5] = tracking_error
+        self.txt_x0[self.stateCounter,6] = noise
+        self.txt_x0[self.stateCounter,7] = completion
+        self.txt_x0[self.stateCounter,8] = steering
+        self.txt_x0[self.stateCounter,9] = slip_angle
         self.stateCounter += 1
 
     def savefile(self, iter):
@@ -25,8 +27,8 @@ class dataSave:
             if (self.txt_x0[i,4] == 0):
                 self.txt_x0 = np.delete(self.txt_x0, slice(i,self.rowSize),axis=0)
                 break
-        np.savetxt(f"Imgs/{self.map_name}/{self.TESTMODE}/{str(iter)}.csv", self.txt_x0, delimiter = ',', header="laptime, completion, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error", fmt="%-10f")
-        self.txt_x0 = np.zeros((self.rowSize,8))
+        np.savetxt(f"Imgs/{self.map_name}/{self.TESTMODE}/{str(iter)}.csv", self.txt_x0, delimiter = ',', header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error, nosie, completion, steering, slip_angle", fmt="%-10f")
+        self.txt_x0 = np.zeros((self.rowSize,10))
         self.stateCounter = 0
     
     def lapInfo(self,lap_count, lap_success, laptime, completion, var1, var2, aveTrackErr, Computation_time):

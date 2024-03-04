@@ -1,0 +1,19 @@
+Benchmark_v_gain: 0.10
+Benchmark_lfd: 0.15
+Benchmark_Max_iter: 5
+
+noise_v_gain: 0.10
+noise_lfd: 0.15
+noise_Max_iter: 300
+
+delay_v_gain: 0.10
+delay_lfd: 0.15
+delay_Max_iter: 10
+
+gain_tune_v_gain: 0.0
+gain_tune_lfd: 0.15
+gain_tune_Max_iter: 50
+
+lfd_tune_v_gain: 0.10
+lfd_tune_lfd: 0.0
+lfd_tune_Max_iter: 50
