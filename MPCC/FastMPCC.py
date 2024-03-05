@@ -21,7 +21,7 @@ class MPCC:
         self.scale = 0.
 
         if self.TESTMODE == "Benchmark" or self.TESTMODE == " ": 
-            self.Max_iter=7           
+            self.Max_iter= 5           
         elif self.TESTMODE == "perception_noise" or self.TESTMODE == "Outputnoise_speed" or self.TESTMODE == "Outputnoise_steering":
             self.Max_iter = 300
         elif self.TESTMODE == "control_delay_speed" or self.TESTMODE == "control_Delay_steering" or self.TESTMODE == "perception_delay":
@@ -31,7 +31,10 @@ class MPCC:
 
         #adjustable params
         #----------------------
-        self.dt = 0.15
+        if map_name == "mco":
+            self.dt = 0.17
+        else:
+            self.dt = 0.16
         self.N = 5  #prediction horizon
         self.mass = 3.8
         self.L = 0.324
@@ -120,11 +123,11 @@ class MPCC:
         # lower case x0: [x,y,psi,states]
         # upper case X0: [x,y,psi,speed]
 
-        x0, X0 = self.inputStateAdust(obs)
+        x0, self.X0_slip = self.inputStateAdust(obs)
         x0 = self.build_initial_state(x0)
         self.construct_warm_start_soln(x0) 
 
-        p = self.generate_parameters(x0,X0[3])
+        p = self.generate_parameters(x0,self.X0_slip[3])
         controls,self.x_bar = self.solve(p)
 
         action = np.array([controls[0, 0], controls[0,1]])
@@ -133,20 +136,20 @@ class MPCC:
         ego_index,min_dists = self.get_trackline_segment(x0[0:2])
         self.completion = 100 if ego_index/len(self.wpts) == 0 else round(ego_index/len(self.wpts)*100,2)
         slip_angle = self.slipAngleCalc(obs)
-        self.ds.saveStates(laptime, X0, 0.0, 0.0, self.scaledRand, self.completion, steering, slip_angle)
+        self.ds.saveStates(laptime, self.X0_slip, 0.0, 0.0, self.scaledRand, self.completion, steering, slip_angle)
 
         return speed,steering
     
     def slipAngleCalc(self,obs):
-        x = [self.X0[0] -self.prev_x0[0]]
-        y = [self.X0[1] - self.prev_x0[1]]
+        x = [self.X0_slip[0] - self.prev_x0[0]]
+        y = [self.X0_slip[1] - self.prev_x0[1]]
         
         velocity_dir = np.arctan2(y,x)
         slip = np.abs(velocity_dir[0] - obs['poses_theta'][0]) *360 / (2*np.pi)
         if slip > 180:
             slip = slip-360
 
-        self.prev_x0 = self.X0
+        self.prev_x0 = self.X0_slip
 
         return slip
 
@@ -318,9 +321,9 @@ class MPCC:
             self.scaledRand = rand*self.scale
             x0 = [obs['poses_x'][0]+self.scaledRand[0], obs['poses_y'][0]+self.scaledRand[0], obs['poses_theta'][0]]
 
-        X0 = [obs['poses_x'][0], obs['poses_y'][0], obs['poses_theta'][0], obs['linear_vels_x'][0]]
+        X0_slip = [obs['poses_x'][0], obs['poses_y'][0], obs['poses_theta'][0], obs['linear_vels_x'][0]]
 
-        return x0, X0
+        return x0, X0_slip
     
     def outputActionAdjust(self,speed,steering):
         rand = np.random.normal(mu,sigma,1)

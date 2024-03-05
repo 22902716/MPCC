@@ -24,8 +24,8 @@ class dataSave:
 
     def savefile(self, iter):
         for i in range(self.rowSize):
-            if (self.txt_x0[i,4] == 0):
-                self.txt_x0 = np.delete(self.txt_x0, slice(i,self.rowSize),axis=0)
+            if (self.txt_x0[i+2,0] == 0):
+                self.txt_x0 = np.delete(self.txt_x0, slice(i+2,self.rowSize),axis=0)
                 break
         np.savetxt(f"Imgs/{self.map_name}/{self.TESTMODE}/{str(iter)}.csv", self.txt_x0, delimiter = ',', header="laptime, ego_x_pos, ego_y_pos, actual speed, expected speed, tracking error, nosie, completion, steering, slip_angle", fmt="%-10f")
         self.txt_x0 = np.zeros((self.rowSize,10))

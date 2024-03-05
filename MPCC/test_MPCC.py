@@ -11,13 +11,13 @@ import time
 import collections as co
 
 MPCCMODE = "fast"           #Mode: "fast"; "constant"; "fastTuning"
-UPDATE_PERIOD = 2
-SAVELAPDATA = False
+UPDATE_PERIOD = 4
+SAVELAPDATA = True
 np.random.seed(0)
 
 def main():
     map_name_list = ["gbr","esp","mco"]
-    # map_name_list = ["gbr"]
+    # map_name_list = ["mco"]
 
     '''Tuning'''
     # testmode_list = ["Tuning"]
@@ -88,8 +88,8 @@ def main():
 
             while iter_count < planner.Max_iter:
                 if (lapCount+obs['lap_counts']+collision_count+reset_count) != iter_count or  obs['collisions'] or new_obs['collisions']:
-                    print((lapCount+obs['lap_counts']+collision_count))
-                    print(iter_count)
+                    # print((lapCount+obs['lap_counts']+collision_count))
+                    # print(iter_count)
                     computation_time = time.time() - computation_time_start
                     lap_success = 1
                     planner.scale = iter_count // 10 * 0.02
@@ -131,7 +131,6 @@ def main():
                     if SAVELAPDATA:
                         planner.ds.savefile(iter_count)
 
-
                     planner.ds.lapInfo(iter_count,lap_success,laptime,planner.completion,var1,var2,aveTrackErr,computation_time)
                     laptime = 0.0
                     computation_time_start = time.time()
@@ -167,7 +166,7 @@ def main():
                             obs, _, _, _ = env.step(np.array([[steering_angle, speed]]))
                     z -= 1
                     laptime += 0.01
-                env.render(mode='human_fast') #'human_fast'(without delay) or 'human' (with 0.005 delay)
+                # env.render(mode='human_fast') #'human_fast'(without delay) or 'human' (with 0.005 delay)
             planner.ds.saveLapInfo()
 
 
