@@ -35,13 +35,13 @@ def main():
             print("new mode, " + TESTMODE)
     
             if MPCCMODE == "constant":
-                planner = MPCC(map_name_list[0])
+                planner = MPCC(map_name)
 
             if MPCCMODE == "fast":
-                planner = fastMPCC(map_name_list[0],TESTMODE)
+                planner = fastMPCC(map_name,TESTMODE)
 
             if MPCCMODE == "fastTuning":
-                planner = MPCCT(map_name_list[0],TESTMODE)
+                planner = MPCCT(map_name,TESTMODE)
 
 
             def render_callback(env_renderer):

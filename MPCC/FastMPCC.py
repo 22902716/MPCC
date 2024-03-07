@@ -277,8 +277,8 @@ class MPCC:
         # print(controls[0, 0], controls[0,1])
 
 
-        if self.solver.stats()['return_status'] != 'Solve_Succeeded':
-            print("Solve failed!!!!!")
+        # if self.solver.stats()['return_status'] != 'Solve_Succeeded':
+        #     print("Solve failed!!!!!")
 
         return controls.full(), self.X0
         
