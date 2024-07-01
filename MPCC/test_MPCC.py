@@ -23,9 +23,9 @@ def main():
     # testmode_list = ["Tuning"]
 
     '''Experiments'''
-    # testmode_list = ["Benchmark"]
+    testmode_list = ["Outputnoise_steering"]
 
-    testmode_list = ["Benchmark","perception_noise","Outputnoise_speed","Outputnoise_steering","control_delay_speed","control_Delay_steering","perception_delay"]
+    # testmode_list = ["Benchmark","perception_noise","Outputnoise_speed","Outputnoise_steering","control_delay_speed","control_Delay_steering","perception_delay"]
     # testmode_list = ["Benchmark","perception_noise","Outputnoise_speed","Outputnoise_steering"]
     # testmode_list = ["control_delay_speed","control_Delay_steering","perception_delay"]     
 

@@ -51,7 +51,7 @@ class MPCC:
 
         self.weight_progress = 100
         self.weight_lag = 1000
-        self.weight_contour = 0.1
+        self.weight_contour = 1
         self.weight_steering = 1.5
 
         self.v_min = 2 
