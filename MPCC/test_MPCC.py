@@ -23,11 +23,11 @@ def main():
     # testmode_list = ["Tuning"]
 
     '''Experiments'''
-    testmode_list = ["Outputnoise_steering"]
+    # testmode_list = ["Outputnoise_steering"]
 
     # testmode_list = ["Benchmark","perception_noise","Outputnoise_speed","Outputnoise_steering","control_delay_speed","control_Delay_steering","perception_delay"]
     # testmode_list = ["Benchmark","perception_noise","Outputnoise_speed","Outputnoise_steering"]
-    # testmode_list = ["control_delay_speed","control_Delay_steering","perception_delay"]     
+    testmode_list = ["control_delay_speed","control_Delay_steering","perception_delay"]     
 
     for map_name in map_name_list:
         print("new map, " + map_name)
@@ -71,7 +71,7 @@ def main():
 
             env = gym.make('f110_gym:f110-v0', map='./maps/'+map_name, map_ext='.png', num_agents=1, timestep=0.01, integrator=Integrator.RK4)
             obs, step_reward, done, info = env.reset(np.array([[planner.waypoints[init_pos][1], planner.waypoints[init_pos][2],planner.waypoints[init_pos][4]]]))
-            new_obs, step_reward, done, info = env.reset(np.array([[planner.waypoints[init_pos][1], planner.waypoints[init_pos][2],planner.waypoints[init_pos][4]]]))
+            new_obs = obs
             planner.reset = 1
             
 
@@ -99,8 +99,13 @@ def main():
                         print("Iter_count = ", iter_count, "I crashed, completion Percentage is", int(planner.completion),"%")
                         lap_success = 0
                         collision_count += 1
-                        lapCount += obs['lap_counts'][0]   
-                        obs, _, _, _ = env.reset(np.array([[planner.waypoints[init_pos][1], planner.waypoints[init_pos][2],planner.waypoints[init_pos][4]]]))
+                        lapCount += obs['lap_counts'][0]  
+                        if TESTMODE == "control_delay_speed" or TESTMODE == "control_Delay_steering" or TESTMODE == "perception_delay":
+                            rand_start_x = np.random.normal(0,0.1,1)
+                            rand_start_y = np.random.normal(0,0.1,1)
+                            obs, _, _, _ = env.reset(np.array([[planner.waypoints[init_pos][1]+rand_start_x, planner.waypoints[init_pos][2]+rand_start_y,planner.waypoints[init_pos][4]]]))
+                        else:
+                            obs, _, _, _ = env.reset(np.array([[planner.waypoints[init_pos][1], planner.waypoints[init_pos][2],planner.waypoints[init_pos][4]]]))
                         reset_count-=1
                         planner.reset = 1
                     else:
@@ -135,7 +140,7 @@ def main():
                     laptime = 0.0
                     computation_time_start = time.time()
                     if TESTMODE == "control_delay_speed" or TESTMODE == "control_Delay_steering" or TESTMODE == "perception_delay":
-                        time_delay += 1
+                        time_delay = iter_count // 10
                         new_speed,new_steering_angle = planner.plan(obs,laptime)
                         control = [new_speed, new_steering_angle]
                         control_queue, obs_queue = initqueue(obs,control,time_delay)

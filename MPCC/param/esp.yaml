@@ -8,7 +8,7 @@ noise_Max_iter: 300
 
 delay_v_gain: 0.10
 delay_lfd: 0.15
-delay_Max_iter: 10
+delay_Max_iter: 100
 
 gain_tune_v_gain: 0.0
 gain_tune_lfd: 0.15

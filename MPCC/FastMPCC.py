@@ -25,7 +25,7 @@ class MPCC:
         elif self.TESTMODE == "perception_noise" or self.TESTMODE == "Outputnoise_speed" or self.TESTMODE == "Outputnoise_steering":
             self.Max_iter = 300
         elif self.TESTMODE == "control_delay_speed" or self.TESTMODE == "control_Delay_steering" or self.TESTMODE == "perception_delay":
-            self.Max_iter = 10
+            self.Max_iter = 100
 
         self.ds = dataSave(TESTMODE, map_name, self.Max_iter)
 
